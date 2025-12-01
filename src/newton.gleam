@@ -48,7 +48,7 @@ fn loop(
   }
 }
 
-fn newton_interpolate(points: List(Point), x: Float) {
+pub fn newton_interpolate(points: List(Point), x: Float) {
   let #(xs, ys) = points |> list.map(fn(p) { #(p.x, p.y) }) |> list.unzip
 
   let y =

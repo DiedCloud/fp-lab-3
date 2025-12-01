@@ -48,7 +48,7 @@ fn loop(
   }
 }
 
-fn linear_interpolate(a: Point, b: Point, x: Float) {
+pub fn linear_interpolate(a: Point, b: Point, x: Float) {
   let y = { a.y *. { b.x -. x } +. b.y *. { x -. a.x } } /. { b.x -. a.x }
   Point(x, y)
 }

@@ -46,7 +46,7 @@ fn loop(
   }
 }
 
-fn lagrange_interpolate(points: List(Point), x: Float) {
+pub fn lagrange_interpolate(points: List(Point), x: Float) {
   let f = fn(x_i: Float) {
     let not_eq = list.filter(points, fn(point_j) { point_j.x != x_i })
     let top =

@@ -414,7 +414,39 @@ fn loop(
 
 `gleam run -- --step=1.5 --algos=linear,lagrange,newton`
 ```text
-
+PS G:\Files\Itmo\FP\fp-lab-3> gleam run -- --step=1.5 --algos=linear,lagrange,newton
+   Compiled in 0.06s
+    Running fp_lab_3.main
+> Using step=1.5
+> Using alogos=linear,lagrange,newton
+Enter lines with two floats separated by space (Ctrl+D to exit):
+1 1
+2 2
+> Linear: 0.0 0.0
+> Linear: 1.5 1.5
+> Lagrange: 0.0 1.0
+> Lagrange: 1.5 1.0
+> Newton: 0.0 1.0
+> Newton: 1.5 1.0
+5 5
+> Linear: 3.0 3.0
+> Linear: 4.5 4.5
+> Newton: 3.0 3.0
+> Newton: 4.5 4.5
+> Lagrange: 3.0 3.0
+> Lagrange: 4.5 4.5
+7 7
+> Linear: 6.0 6.0
+> Lagrange: 6.0 6.0
+> Newton: 6.0 6.0
+9 9
+> Linear: 7.5 7.5
+> Lagrange: 7.5 7.499999999999999
+> Newton: 7.5 7.5
+10 10
+> Linear: 9.0 9.0
+> Lagrange: 9.0 9.0
+> Newton: 9.0 9.0
 ```
 
 ## Запуск тестов
@@ -426,12 +458,26 @@ gleam test
 
 Результат запуска тестов:
 ```
-
+PS G:\Files\Itmo\FP\fp-lab-3> gleam test
+  Compiling fp_lab_3
+   Compiled in 0.40s
+    Running fp_lab_3_test.main
+...
+3 passed, no failures
 ```
 
 ## Заключение
 
+В ходе выполнения лабораторной работы реализованы 3 алгоритма интерполяции - линейного, Лагранжа и Ньютона.
 
+Разработанная программа получает данные со стандартного ввода.
+Она использует отдельные легковесные процессы для:
+ - интерполяции каждым алгоритмом,
+ - генерации последовательности точек для каждого алгоритма,
+ - и ещё отдельный процесс для вывода.
+
+Было интересной и непростой задачей настроить обмен сообщениями между процессами. 
+Но именно через него алгоритмы получают введённые данные.
 
 ## Зависимости
 
