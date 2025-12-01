@@ -364,7 +364,7 @@ pub fn start_input(
   alg_subjects: List(process.Subject(InputMessage)),
   output_subj: process.Subject(OuptputMassage),
 ) {
-  io.println("Enter lines with two floats separated by space (Ctrl+D to exit):")
+  io.println("Enter lines with two floats separated by space (`exit` to exit):")
   loop(step, alg_subjects, output_subj)
 }
 
@@ -375,6 +375,12 @@ fn loop(
 ) {
   let inp_res = input.input("")
   case inp_res {
+    Ok("exit") -> {
+      io.println("'exit' command captured. Sending EOF to processes")
+      list.map(alg_subjects, process.send(_, messages.InputEOF))
+      process.send(output_subj, messages.OutputEOF)
+      io.println("EOFs sent, shutting down")
+    }
     Ok(line) -> {
       case string.split(line, " ") {
         [x, y] -> {
@@ -405,7 +411,12 @@ fn loop(
       }
       loop(step, alg_subjects, output_subj)
     }
-    Error(_) -> io.println("Failed to read line")
+    Error(_) -> {
+      io.println("Failed to read line. Sending EOF to processes")
+      list.map(alg_subjects, process.send(_, messages.InputEOF))
+      process.send(output_subj, messages.OutputEOF)
+      io.println("EOFs sent, shutting down")
+    }
   }
 }
 ```
