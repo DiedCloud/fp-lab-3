@@ -160,10 +160,10 @@ fn start() {
   let assert Ok(step) = step(flags)
   let assert Ok(algos) = algos(flags)
 
-  echo step
-  echo algos
+  io.println("> Using step=" <> float.to_string(step))
+  io.println("> Using alogos=" <> algos_to_str(algos, ""))
 
-  ...
+  //...
 }
 
 pub fn main() -> Nil {
@@ -248,7 +248,7 @@ fn choose_and_spawn_algo(
 
   case alog_str {
     "linear" -> process.spawn(linear.spawn_linear(this_subj))
-    "lagrange" -> process.spawn(linear.spawn_linear(this_subj))
+    "lagrange" -> process.spawn(lagrange.spawn_lagrange(this_subj))
     "newton" -> process.spawn(linear.spawn_linear(this_subj))
     _ -> {
       io.println_error("Unknown algorithm" <> alog_str)
