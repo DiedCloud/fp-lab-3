@@ -8,16 +8,14 @@ import input
 import messages.{type InputMessage, type OuptputMassage}
 
 pub fn start_input(
-  step: Float,
   alg_subjects: List(process.Subject(InputMessage)),
   output_subj: process.Subject(OuptputMassage),
 ) {
   io.println("Enter lines with two floats separated by space (`exit` to exit):")
-  loop(step, alg_subjects, output_subj)
+  loop(alg_subjects, output_subj)
 }
 
 fn loop(
-  step: Float,
   alg_subjects: List(process.Subject(InputMessage)),
   output_subj: process.Subject(OuptputMassage),
 ) {
@@ -48,7 +46,7 @@ fn loop(
             Ok(x), Ok(y) -> {
               list.map(alg_subjects, process.send(
                 _,
-                messages.NextPoint(messages.Point(x, y), step, output_subj),
+                messages.NextPoint(messages.Point(x, y), output_subj),
               ))
               Nil
             }
@@ -57,7 +55,7 @@ fn loop(
         }
         _ -> io.println("You should input to numbers splitted by space")
       }
-      loop(step, alg_subjects, output_subj)
+      loop(alg_subjects, output_subj)
     }
     Error(_) -> {
       io.println("Failed to read line. Sending EOF to processes")

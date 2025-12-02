@@ -5,11 +5,7 @@ pub type Point {
 }
 
 pub type InputMessage {
-  NextPoint(
-    point: Point,
-    step: Float,
-    output_name: process.Subject(OuptputMassage),
-  )
+  NextPoint(point: Point, output_name: process.Subject(OuptputMassage))
   InputEOF
 }
 
@@ -19,6 +15,6 @@ pub type OuptputMassage {
 }
 
 pub type GeneratorMessage {
-  NextX(reply_to: process.Subject(List(Float)), x: Float, step: Float)
+  NextX(reply_to: process.Subject(List(Float)), start_x: Float, end_x: Float)
   EOF
 }

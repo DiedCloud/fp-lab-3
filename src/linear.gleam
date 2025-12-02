@@ -6,11 +6,12 @@ import x_generator
 
 pub fn spawn_linear(
   creator_subj: process.Subject(process.Subject(messages.InputMessage)),
+  step: Float,
 ) {
   fn() {
     let this_subj: process.Subject(process.Subject(messages.GeneratorMessage)) =
       process.new_subject()
-    process.spawn(x_generator.spawn_generator(this_subj))
+    process.spawn(x_generator.spawn_generator(this_subj, step))
     let generator_subj = process.receive_forever(this_subj)
 
     let this_subj: process.Subject(messages.InputMessage) =
@@ -29,11 +30,15 @@ fn loop(
   let message = this_subj |> process.receive_forever()
 
   case message {
-    NextPoint(Point(x, _y) as cur_point, step, output_subj) ->
+    NextPoint(Point(x, _y) as cur_point, output_subj) ->
       case prev {
         Some(prev_point) -> {
           let xs_list =
-            process.call_forever(generator_subj, messages.NextX(_, x, step))
+            process.call_forever(generator_subj, messages.NextX(
+              _,
+              prev_point.x,
+              x,
+            ))
           let res_list =
             list.map(xs_list, linear_interpolate(prev_point, cur_point, _))
 

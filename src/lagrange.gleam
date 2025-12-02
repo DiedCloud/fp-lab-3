@@ -1,22 +1,25 @@
 import gleam/erlang/process
 import gleam/list
 import messages.{type GeneratorMessage, type Point, InputEOF, NextPoint, Point}
+import util
 import x_generator
 
 pub fn spawn_lagrange(
   creator_subj: process.Subject(process.Subject(messages.InputMessage)),
+  step: Float,
+  n: Int,
 ) {
   fn() {
     let this_subj: process.Subject(process.Subject(messages.GeneratorMessage)) =
       process.new_subject()
-    process.spawn(x_generator.spawn_generator(this_subj))
+    process.spawn(x_generator.spawn_generator(this_subj, step))
     let generator_subj = process.receive_forever(this_subj)
 
     let this_subj: process.Subject(messages.InputMessage) =
       process.new_subject()
     process.send(creator_subj, this_subj)
 
-    loop(generator_subj, [], this_subj)
+    loop(generator_subj, [], this_subj, n)
   }
 }
 
@@ -24,22 +27,33 @@ fn loop(
   generator_subj: process.Subject(GeneratorMessage),
   known: List(Point),
   this_subj: process.Subject(messages.InputMessage),
+  n: Int,
 ) {
   let message = this_subj |> process.receive_forever()
 
   case message {
-    NextPoint(Point(x, _y) as cur_point, step, output_subj) ->
-      case known {
-        [_, ..] -> {
+    NextPoint(Point(x, _y) as cur_point, output_subj) ->
+      case list.length(known) == n - 1 {
+        True -> {
           let xs_list =
-            process.call_forever(generator_subj, messages.NextX(_, x, step))
+            process.call_forever(generator_subj, messages.NextX(
+              _,
+              util.unsafe_list_at(known, 0).x,
+              x,
+            ))
           let res_list = list.map(xs_list, lagrange_interpolate(known, _))
 
           process.send(output_subj, messages.Result("Lagrange", res_list))
 
-          loop(generator_subj, [cur_point, ..known], this_subj)
+          let next_known = case known {
+            [_to_drop, ..tail] -> list.append(tail, [cur_point])
+            _ -> panic
+          }
+
+          loop(generator_subj, next_known, this_subj, n)
         }
-        _ -> loop(generator_subj, [cur_point], this_subj)
+        False ->
+          loop(generator_subj, list.append(known, [cur_point]), this_subj, n)
       }
 
     InputEOF -> process.send(generator_subj, messages.EOF)

@@ -1,4 +1,4 @@
-# Реализация множества на красно-чёрном дереве на Gleam
+# Реализация методов интерполяции на Gleam
 
 ## Лабораторная работа #3
 
@@ -138,14 +138,22 @@ fn create_step_flag() {
   |> glint.flag_help("Defines step between generated X values to interpolate")
 }
 
+fn create_points_num_flag() {
+  glint.int_flag("n")
+  |> glint.flag_default(4)
+  |> glint.flag_help(
+    "Defines number of point needed for Lagrange and Newton algorithms to interpolate"
+  )
+}
+
 fn create_algos_flag() {
   glint.strings_flag("algos")
   |> glint.flag_default(["linear"])
   |> glint.flag_help("Defines set of algoritms to use for interpolation")
   |> glint.flag_constraint(
-    ["linear", "lagrange", "newton"]
-    |> constraint.one_of
-    |> constraint.each,
+  ["linear", "lagrange", "newton"]
+  |> constraint.one_of
+  |> constraint.each,
   )
 }
 
@@ -153,17 +161,20 @@ fn start() {
   use <- glint.command_help("Prints Hello, <NAME>!")
 
   use step <- glint.flag(create_step_flag())
+  use n <- glint.flag(create_points_num_flag())
   use algos <- glint.flag(create_algos_flag())
 
   use _, _args, flags <- glint.command()
 
   let assert Ok(step) = step(flags)
+  let assert Ok(n) = n(flags)
   let assert Ok(algos) = algos(flags)
 
+  io.println("> Using n=" <> int.to_string(n))
   io.println("> Using step=" <> float.to_string(step))
   io.println("> Using alogos=" <> algos_to_str(algos, ""))
 
-  //...
+  // ...
 }
 
 pub fn main() -> Nil {
@@ -242,14 +253,16 @@ Spawn-им на каждый алгоритм процесс, который:
 ```gleam
 fn choose_and_spawn_algo(
   alog_str: String,
+  step: Float,
+  n: Int,
 ) -> process.Subject(messages.InputMessage) {
   let this_subj: process.Subject(process.Subject(messages.InputMessage)) =
     process.new_subject()
 
   case alog_str {
-    "linear" -> process.spawn(linear.spawn_linear(this_subj))
-    "lagrange" -> process.spawn(lagrange.spawn_lagrange(this_subj))
-    "newton" -> process.spawn(newton.spawn_newton(this_subj))
+    "linear" -> process.spawn(linear.spawn_linear(this_subj, step))
+    "lagrange" -> process.spawn(lagrange.spawn_lagrange(this_subj, step, n))
+    "newton" -> process.spawn(newton.spawn_newton(this_subj, step, n))
     _ -> {
       io.println_error("Unknown algorithm" <> alog_str)
       panic
@@ -262,12 +275,13 @@ fn choose_and_spawn_algo(
 
 ```gleam
 pub fn spawn_linear(
-  creator_subj: process.Subject(process.Subject(messages.InputMessage)),
+creator_subj: process.Subject(process.Subject(messages.InputMessage)),
+step: Float,
 ) {
   fn() {
     let this_subj: process.Subject(process.Subject(messages.GeneratorMessage)) =
       process.new_subject()
-    process.spawn(x_generator.spawn_generator(this_subj))
+    process.spawn(x_generator.spawn_generator(this_subj, step))
     let generator_subj = process.receive_forever(this_subj)
 
     let this_subj: process.Subject(messages.InputMessage) =
@@ -286,26 +300,30 @@ fn loop(
   let message = this_subj |> process.receive_forever()
 
   case message {
-    NextPoint(Point(x, _y) as cur_point, step, output_subj) ->
-      case prev {
-        Some(prev_point) -> {
-          let xs_list =
-            process.call_forever(generator_subj, messages.NextX(_, x, step))
-          let res_list =
-            list.map(xs_list, linear_interpolate(prev_point, cur_point, _))
+    NextPoint(Point(x, _y) as cur_point, output_subj) ->
+    case prev {
+      Some(prev_point) -> {
+        let xs_list =
+          process.call_forever(generator_subj, messages.NextX(
+            _,
+            prev_point.x,
+            x,
+          ))
+        let res_list =
+          list.map(xs_list, linear_interpolate(prev_point, cur_point, _))
 
-          process.send(output_subj, messages.Result("Linear", res_list))
+        process.send(output_subj, messages.Result("Linear", res_list))
 
-          loop(generator_subj, Some(cur_point), this_subj)
-        }
-        None -> loop(generator_subj, Some(cur_point), this_subj)
+        loop(generator_subj, Some(cur_point), this_subj)
       }
+      None -> loop(generator_subj, Some(cur_point), this_subj)
+    }
 
     InputEOF -> process.send(generator_subj, messages.EOF)
   }
 }
 
-fn linear_interpolate(a: Point, b: Point, x: Float) {
+pub fn linear_interpolate(a: Point, b: Point, x: Float) {
   let y = { a.y *. { b.x -. x } +. b.y *. { x -. a.x } } /. { b.x -. a.x }
   Point(x, y)
 }
@@ -319,26 +337,39 @@ fn linear_interpolate(a: Point, b: Point, x: Float) {
 ```gleam
 pub fn spawn_generator(
   creator_subj: process.Subject(process.Subject(messages.GeneratorMessage)),
+  step: Float,
 ) {
   fn() {
     let this_subj = process.new_subject()
 
     process.send(creator_subj, this_subj)
 
-    loop(0.0, this_subj)
+    loop(None, step, this_subj)
   }
 }
 
-fn loop(start_x: Float, this_subj: process.Subject(messages.GeneratorMessage)) {
+fn loop(
+  start_x: Option(Float),
+  step: Float,
+  this_subj: process.Subject(messages.GeneratorMessage),
+) {
   let message = process.receive_forever(this_subj)
 
   case message {
-    NextX(reply_to, end_x, step) -> {
-      let xs_list = get_list(start_x, step, end_x)
-      let new_start_x = { list.last(xs_list) |> result.unwrap(start_x) } +. step
+    NextX(reply_to, init_start_x, end_x) -> {
+      let real_start_x = case start_x {
+        None -> init_start_x
+        Some(s) -> s
+      }
+
+      let xs_list = get_list(real_start_x, step, end_x)
       process.send(reply_to, xs_list)
 
-      loop(new_start_x, this_subj)
+      let new_start_x = case list.last(xs_list) {
+        Ok(val) -> val +. step
+        Error(_) -> real_start_x
+      }
+      loop(Some(new_start_x), step, this_subj)
     }
     EOF -> Nil
   }
@@ -360,16 +391,14 @@ fn get_list(start_x: Float, step: Float, end_x: Float) -> List(Float) {
 
 ```gleam
 pub fn start_input(
-  step: Float,
   alg_subjects: List(process.Subject(InputMessage)),
   output_subj: process.Subject(OuptputMassage),
 ) {
   io.println("Enter lines with two floats separated by space (`exit` to exit):")
-  loop(step, alg_subjects, output_subj)
+  loop(alg_subjects, output_subj)
 }
 
 fn loop(
-  step: Float,
   alg_subjects: List(process.Subject(InputMessage)),
   output_subj: process.Subject(OuptputMassage),
 ) {
@@ -400,7 +429,7 @@ fn loop(
             Ok(x), Ok(y) -> {
               list.map(alg_subjects, process.send(
                 _,
-                messages.NextPoint(messages.Point(x, y), step, output_subj),
+                messages.NextPoint(messages.Point(x, y), output_subj),
               ))
               Nil
             }
@@ -409,7 +438,7 @@ fn loop(
         }
         _ -> io.println("You should input to numbers splitted by space")
       }
-      loop(step, alg_subjects, output_subj)
+      loop(alg_subjects, output_subj)
     }
     Error(_) -> {
       io.println("Failed to read line. Sending EOF to processes")
